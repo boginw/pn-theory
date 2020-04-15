@@ -1,0 +1,23 @@
+theory pn
+  imports Main
+begin
+
+typedecl state
+
+consts M :: "(state \<times> state) set"
+consts n :: "nat"
+
+definition Players :: "nat set" where 
+"Players \<equiv> { i . i < n }"
+
+typedecl "pred"
+
+consts L :: "state \<Rightarrow> pred set"
+
+datatype formula = Disjunction formula formula
+                 | Predicate pred
+                 | Negation formula
+                 | Next "Players" formula
+                 | Until "Players" formula formula
+
+end
