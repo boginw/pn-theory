@@ -100,21 +100,18 @@ fun fire :: "marking \<Rightarrow> transitions \<Rightarrow> (marking option)" w
       then Some (resulting_marking m t)
       else None)"
 
-lemma cannot_fire[simp]: "t \<notin> (enabled m) \<Longrightarrow> fire m t = None"
+lemma cannot_fire[simp]: "(t \<notin> (enabled m)) = (fire m t = None)"
   apply(simp)
   done
 
-lemma can_fire[simp]: "t \<in> (enabled m) \<Longrightarrow> fire m t \<noteq> None"
+lemma enabled_trans: "t \<in> (enabled m) \<Longrightarrow> t \<in> T"
   apply(simp)
   done
 
-(*lemma enabled_trans[simp]: "\<forall>t. t \<in> (enabled m) \<longrightarrow> t \<in> T"
-  apply(simp)
-  done
-
-lemma player_can_fire: "(t \<in> (enabled m) \<and> (Q t) = (Abs_players 1)) = (t \<in> (enabled_p m (Abs_players 1)))"
-  apply(induct_tac t)
-  oops*)
+lemma player_can_fire: 
+  assumes "t \<in> (enabled m)"
+  shows "((Q t) = (Abs_players 1)) = (t \<in> (enabled_p m (Abs_players 1)))"
+  using assms by auto
 
 (* The operators allowed in expressions *)
 datatype exprop = Plus | Minus | Mult
@@ -172,7 +169,5 @@ function eval_f :: "(marking set) \<Rightarrow> marking \<Rightarrow> formula \<
       ((r,m \<Turnstile> f1) \<and> 
         ((m \<notin> r) \<and> (r,m \<Turnstile> (Next p (Until p f1 f2))))))"
   by pat_completeness auto
-
-
 
 end
