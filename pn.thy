@@ -70,47 +70,60 @@ type_synonym PN = "(places set) * (transitions set) *
 consts PetriNet :: "PN"
 
 (* We define the components of our Petri-Net*)
-definition P :: "places set" where "P \<equiv> (fst PetriNet)"
-definition T :: "transitions set" where "T \<equiv> (fst (snd PetriNet))"
-definition Q :: "trans_owner" where "Q \<equiv> (fst (snd (snd PetriNet)))"
-definition W :: "weights" where "W \<equiv> (snd (snd (snd PetriNet)))"
+definition P :: "places set" where 
+  "P \<equiv> (fst PetriNet)"
+definition T :: "transitions set" where 
+  "T \<equiv> (fst (snd PetriNet))"
+definition Q :: "trans_owner" where 
+  "Q \<equiv> (fst (snd (snd PetriNet)))"
+definition W :: "weights" where 
+  "W \<equiv> (snd (snd (snd PetriNet)))"
 
 (* All the enabled transitions in a given marking *)
-fun enabled :: "marking \<Rightarrow> (transitions set)"
+fun en :: "marking \<Rightarrow> (transitions set)"
   where
-    "enabled m = 
+    "en m = 
       { t \<in> T . \<forall>p \<in> P . 
         ((m p) \<ge> (W (PT p t))) \<and>
         ((m p) \<le> bound)
       }"
 
-(* All the enabled transitions for a given player at a given marking *)
-fun enabled_p :: "marking \<Rightarrow> players \<Rightarrow> (transitions set)" where
-  "enabled_p m p = { t . (t \<in> (enabled m)) \<and> ((Q t) = p) }"
+(* All the enabled transitions for a given player at a
+   given marking *)
+fun en_p :: "marking \<Rightarrow> players \<Rightarrow> (transitions set)" where
+  "en_p m p = { t . (t \<in> (en m)) \<and> ((Q t) = p) }"
 
-(* Gives the marking resulting from firing a transition
-   no matter if that transition is enabled or not
+(* Gives the marking resulting from firing a 
+   transition no matter if that transition is enabled 
+   or not
 *)
-fun resulting_marking :: "marking \<Rightarrow> transitions \<Rightarrow> marking" where
+fun resulting_marking :: "marking \<Rightarrow> transitions \<Rightarrow> marking" 
+  where
  "resulting_marking m t = (\<lambda>p. (m p) - (W (PT p t)) + (W (TP t p)))"
 
-(* The firing of a marking produces another marking*)
-fun fire :: "marking \<Rightarrow> transitions \<Rightarrow> (marking option)" where
-  "fire m t = (if t \<in> (enabled m) 
+(* The firing of a marking produces another marking *)
+fun fire :: "marking \<Rightarrow> transitions \<Rightarrow> (marking option)" 
+  where
+  "fire m t = (if t \<in> (en m) 
       then Some (resulting_marking m t)
       else None)"
 
-lemma cannot_fire[simp]: "(t \<notin> (enabled m)) = (fire m t = None)"
+(* If no transition is fireable if its not enabled *)
+lemma cannot_fire[simp]: 
+  "(t \<notin> (en m)) = (fire m t = None)"
   apply(simp)
   done
 
-lemma enabled_trans: "t \<in> (enabled m) \<Longrightarrow> t \<in> T"
+(* If a transition is enabled, then it exists *)
+lemma enabled_trans: "t \<in> (en m) \<Longrightarrow> t \<in> T"
   apply(simp)
   done
 
+(* Given that a transition is enabled, if its owned by
+   a player then its also enabled for that player  *)
 lemma player_can_fire: 
-  assumes "t \<in> (enabled m)"
-  shows "((Q t) = (Abs_players 1)) = (t \<in> (enabled_p m (Abs_players 1)))"
+  assumes "t \<in> (en m)"
+  shows "((Q t) = (Abs_players p)) = (t \<in> (en_p m (Abs_players p)))"
   using assms by auto
 
 (* The operators allowed in expressions *)
@@ -125,49 +138,62 @@ datatype Expr = Constant nat
 (* The operators allowed in our predicates *)
 datatype predop = Le | Leq | Eq | Neq | Ge | Geq
 
-(* The syntax of our predicates *)
-datatype predicate = Boolean bool 
-                   | Equation Expr predop Expr
-
 (* Evaluation of an expression wrt. a marking *)
 fun eval_e :: "marking \<Rightarrow> Expr \<Rightarrow> nat" where
   "eval_e _ (Constant c) = c" |
   "eval_e m (Place p) = (m p)" |
-  "eval_e m (Enabled a) = (card (enabled_p m a))" |
-  "eval_e m (Expr e1 Plus e2) = ((eval_e m e1) + (eval_e m e2))" |
-  "eval_e m (Expr e1 Minus e2) = ((eval_e m e1) - (eval_e m e2))" |
-  "eval_e m (Expr e1 Mult e2) = ((eval_e m e1) * (eval_e m e2))"
-
-(* Evaluation of a predicate wrt. a marking *)
-fun eval_p :: "marking \<Rightarrow> predicate \<Rightarrow> bool" where 
-    "eval_p _ (Boolean a) = a"
-  | "eval_p s (Equation a Le c) = ((eval_e s a) < (eval_e s c))"
-  | "eval_p s (Equation a Leq c) = ((eval_e s a) \<le> (eval_e s c))"
-  | "eval_p s (Equation a Eq c) = ((eval_e s a) = (eval_e s c))"
-  | "eval_p s (Equation a Neq c) = ((eval_e s a) \<noteq> (eval_e s c))"
-  | "eval_p s (Equation a Ge c) = ((eval_e s a) > (eval_e s c))"
-  | "eval_p s (Equation a Geq c) = ((eval_e s a) \<ge> (eval_e s c))"
+  "eval_e m (Enabled a) = (card (en_p m a))" |
+  "eval_e m (Expr e1 Plus e2) = 
+    ((eval_e m e1) + (eval_e m e2))" |
+  "eval_e m (Expr e1 Minus e2) = 
+    ((eval_e m e1) - (eval_e m e2))" |
+  "eval_e m (Expr e1 Mult e2) = 
+    ((eval_e m e1) * (eval_e m e2))"
 
 (* The syntax of our queries *)
-datatype formula = Disjunction formula formula
-                 | Predicate predicate
+datatype formula = Boolean bool
+                 | Equation Expr predop Expr
+                 | Disjunction formula formula
                  | Negation formula
                  | Next players formula
                  | Until players formula formula
 
 (* Evaluation of formula *)
-function eval_f :: "(marking set) \<Rightarrow> marking \<Rightarrow> formula \<Rightarrow> bool" ("(_,_ \<Turnstile> _)" [80,80,80] 80) where
-  "eval_f r m (Disjunction f1 f2) = ((r,m \<Turnstile> f1) \<or> (r,m \<Turnstile> f2))" |
-  "eval_f r m (Predicate p) = (eval_p m p)" |
-  "eval_f r m (Negation f) = (\<not> (r,m \<Turnstile> f))" |
-  "eval_f r m (Next p f) = 
+function eval_f :: "(marking set) \<Rightarrow> marking \<Rightarrow> formula \<Rightarrow> bool" 
+  ("(_,_ \<Turnstile> _)" [80,80,80] 80) where
+  (* Predicate formulas *)
+  "eval_f _ _ (Boolean a) = a" |
+  "eval_f _ m (Equation a Le c) =
+    ((eval_e m a) < (eval_e m c))" |
+  "eval_f _ m (Equation a Leq c) =
+    ((eval_e m a) \<le> (eval_e m c))" |
+  "eval_f _ m (Equation a Eq c) = 
+    ((eval_e m a) = (eval_e m c))" |
+  "eval_f _ m (Equation a Neq c) = 
+    ((eval_e m a) \<noteq> (eval_e m c))" |
+  "eval_f _ m (Equation a Ge c) = 
+    ((eval_e m a) > (eval_e m c))" |
+  "eval_f _ m (Equation a Geq c) = 
+    ((eval_e m a) \<ge> (eval_e m c))" |
+  (* State formulas*)
+  "eval_f r m (Disjunction f1 f2) = 
+    ((r,m \<Turnstile> f1) \<or> (r,m \<Turnstile> f2))" |
+  "eval_f r m (Negation f) = 
+    (\<not> (r,m \<Turnstile> f))" |
+  (* Path formulas *)
+  "eval_f r m (Next p f) =
     (\<exists>t \<in> T . 
       let m' = (fire m t) in 
-        (case m' of None \<Rightarrow> False | Some m'' \<Rightarrow> (({m} \<union> r),m'' \<Turnstile> f)))" |
+        (case m' of 
+          None     \<Rightarrow> False | 
+          Some m'' \<Rightarrow> (({m} \<union> r),m'' \<Turnstile> f)))" |
   "eval_f r m (Until p f1 f2) = 
     ((r,m \<Turnstile> f2) \<or> 
       ((r,m \<Turnstile> f1) \<and> 
-        ((m \<notin> r) \<and> (r,m \<Turnstile> (Next p (Until p f1 f2))))))"
+        ((m \<notin> r) \<and> 
+          (r,m \<Turnstile> (Next p (Until p f1 f2))))))"
   by pat_completeness auto
+
+
 
 end
