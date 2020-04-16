@@ -1,5 +1,5 @@
 theory EDG
-  imports ATL pn
+  imports ATL
 begin
   
 end
